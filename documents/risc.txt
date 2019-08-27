@@ -1,0 +1,89 @@
+Risc Chip
+=========
+
+Memory is word-addressed.
+
+R15 		PC
+R14 		C NC M P Z NZ flags
+R13 		Link Register
+R0-R12 		General Purpose
+
+1aaa aaaa aaaa aaaa 	: B <a>
+		
+		R15 -> R13 ; R15 = R15 + a, sign extended.
+
+
+0ccc fimm tttt ssss 	: <cmd> <acc>,<eac>
+
+		Operation 		ccc			(see below)
+
+		Set Flags 		f 			If non zero set flag register R13. NC is
+									set unless specified, Z NZ M P to Rs
+
+		Immediate 		i 			if i is non-zero the right value is the
+									bits mmtttt, an unsigned constant.
+
+		Mode 			mm 			if i is zero, mm is the addresing mode, and
+									tttt the register.
+
+									00 	Register direct (e.g. Rt)
+									01  Register indirect (e.g. (Rt))
+									10  Register pre-dec indirect (e.g. -(Rt))
+									11  Register post-inc indirect (e.g. (Rt)+)
+
+Operations
+==========
+
+000		LDR Rs,x 					Copy (EAC) to Rs
+001		STR Rs,x 					Copy Rs to EAC. Ignored if i bit is set.
+
+010 	ADD Rs,x 					Rs := Rs + (EAC). C set on overflow (if F set)
+011 	SUB Rs,x 					Rs := Rs + ~(EAC)+1. C set on overflow (if F set)
+
+100 	AND Rs,x 					Rs := Rs & (EAC)
+101 	XOR Rs,x 					Rs := Rs ^ (EAC)
+
+110 	ROR Rs,x 					Rs := (EAC) >> 1.
+
+111 	SKB Rs,x 					if (Rs & (EAC)) == (EAC) then R15++
+
+Notes
+=====
+
+the F flag indicates F being set, e.g. LDRF rather than LDR. If F is not specified
+*no* flags are changed at all.
+
+immediate syntax is #n
+
+by convention, R12 is the stack pointer, and operates downwards.
+
+reset state. R15 = $0000 only.
+
+Short cuts SKP SKM SKC SKNC SKZ SKNZ SKGT SKLE are provided (the last two are >0 and <= 0)
+these generate SKB R14,#<constant> on the flag bits.
+
+Blitter Chip
+============
+
++0		Target address (Y * 256 + X)
++1 		Source address
++2 		miff fbbb hhhh wwww - initiates copy.
++3 		status
+
+			m = 0 	byte mode, one byte => 8 pixels
+			m = 1 	pixel mode, one byte => 1 pixel.
+
+			i = 0 	don't increment source address.
+			i = 1 	increment after byte read (to replicate byte patterns)
+
+			fff		foreground colour (byte mode)
+			bbb 	background colour (byte mode), transparent colour (pixel mode)
+
+			hhhh 	height in pixels (note : 0 => 16)
+			wwww 	width in bytes or pixels (note : 0 => 16)
+
+On exit target address increments down (wraps at 64k), source address is advanced 
+incrementally.
+
+Status is read from +3, which returns a ready flag in bit 15, set when it is busy.
+(e.g. check for it being zero before starting a blit.)
